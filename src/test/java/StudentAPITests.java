@@ -1,21 +1,23 @@
-import java.lang.reflect.Array;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.List;
 import io.restassured.RestAssured;
+import io.restassured.authentication.OAuthSignature;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import io.restassured.response.ValidatableResponse;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.net.URI;
 import java.util.ArrayList;
 
 import static  io.restassured.RestAssured.*;
-import static io.restassured.matcher.RestAssuredMatchers.*;
 import static org.hamcrest.Matchers.*;
 
 public class StudentAPITests {
+
+    //Authentication : https://github.com/rest-assured/rest-assured/wiki/Usage#authentication
 
     /*given()
     arrange (base uri, path, parameters etc)
@@ -30,7 +32,18 @@ public class StudentAPITests {
         RestAssured.baseURI ="http://localhost";
         RestAssured.port = 8080;
         RestAssured.basePath = "student";
+
+        //This will use authentication for all the requests with given username and password
+        //Challenged will use username and password only when asked
+        RestAssured.authentication = basic("username", "password");
+
+        //Preemtive
+        RestAssured.authentication = preemptive().basic("username", "password");
+
+        //OAuth
+        RestAssured.oauth2("token", OAuthSignature.HEADER);
     }
+
 
     @Test
     public void GetStudentById_CheckResponse()
@@ -142,6 +155,45 @@ public class StudentAPITests {
         Student student = GetLastStudent();
     }
 
+    @Test
+    public void Authentication_Challenged_Basic()
+    {
+        given()
+                .baseUri("baseuri")
+                .basePath("path")
+                .auth().basic("Shital","123456")
+            .get();
+    }
+
+
+    @Test
+    public void Authentication_PreEmptive_Basic() throws IOException {
+        //loop to pull username and password from database or file
+
+        List<UserCredential> userCredentials = GetCredentials();
+
+        for (UserCredential credential : userCredentials) {
+            System.out.println("a:" + credential.getUsername() + " b:" + credential.getPassword());
+          /*
+            given()
+                    .baseUri("baseuri")
+                    .basePath("path")
+                    .auth().basic(credential.getUsername(), credential.getPassword())
+                    .get();
+*/
+        }
+        /*for (int i = 0; i < 5; i++)
+        {
+            String password = "passwordfromfile" + i;
+            String username = "usernamefromFile" + i;
+            given()
+                    .baseUri("baseuri")
+                    .basePath("path")
+                    .auth().basic(username, password)
+                    .get();
+        }*/
+    }
+
     @Test //POJO - plain old java object
     public void Post_ToCreateNewStudentUsing_POJO()
     {
@@ -237,5 +289,29 @@ public class StudentAPITests {
         Students students = response.as(Students.class);
         Student last = students.get(students.size() - 1);
         return last;
+    }
+
+//for jdbc reference link https://www.tutorialspoint.com/jdbc/jdbc-select-records.htm
+    //https://docs.oracle.com/javase/tutorial/jdbc/basics/processingsqlstatements.html
+    private List<UserCredential> GetCredentials() throws IOException {
+        List<UserCredential> list = new ArrayList<>();
+
+        BufferedReader br = new BufferedReader(new FileReader("S:\\API TESTING\\usercredentials.csv"));
+        try {
+            String line = br.readLine();
+
+            while (line != null) {
+                String[] split = line.split(",");
+                list.add(new UserCredential(split[0], split[1]));
+                System.out.println("username:" + split[0] + "   password:" + split[1]);
+                line = br.readLine();
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            br.close();
+        }
+        return list;
     }
 }
